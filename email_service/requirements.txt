@@ -1,0 +1,2 @@
+# No external dependencies needed - using Python standard library
+# smtplib, email.mime are built-in

@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from .forms import DoctorSignUpForm, PatientSignUpForm, AvailabilitySlotForm
 from .models import User, AvailabilitySlot, Booking
+from .email_service import send_email
 
 
 def home(request):
@@ -17,6 +18,10 @@ def doctor_signup(request):
         form = DoctorSignUpForm(request.POST)
         if form.is_valid():
             user = form.save()
+            send_email('SIGNUP_WELCOME', user.email, {
+                'name': user.get_full_name(),
+                'role': 'Doctor'
+            })
             login(request, user)
             messages.success(request, 'Welcome! Your doctor account has been created.')
             return redirect('dashboard')
@@ -24,12 +29,15 @@ def doctor_signup(request):
         form = DoctorSignUpForm()
     return render(request, 'core/signup.html', {'form': form, 'role': 'Doctor'})
 
-
 def patient_signup(request):
     if request.method == 'POST':
         form = PatientSignUpForm(request.POST)
         if form.is_valid():
             user = form.save()
+            send_email('SIGNUP_WELCOME', user.email, {
+                'name': user.get_full_name(),
+                'role': 'Patient'
+            })
             login(request, user)
             messages.success(request, 'Welcome! Your patient account has been created.')
             return redirect('dashboard')
@@ -140,6 +148,21 @@ def book_appointment(request, slot_id):
         )
         slot.is_booked = True
         slot.save()
+        
+        # Send confirmation emails
+        send_email('BOOKING_CONFIRMATION', request.user.email, {
+            'patient_name': request.user.get_full_name(),
+            'doctor_name': slot.doctor.get_full_name(),
+            'date': slot.date.strftime('%Y-%m-%d'),
+            'time': slot.start_time.strftime('%H:%M')
+        })
+        
+        send_email('BOOKING_CONFIRMATION', slot.doctor.email, {
+            'patient_name': request.user.get_full_name(),
+            'doctor_name': slot.doctor.get_full_name(),
+            'date': slot.date.strftime('%Y-%m-%d'),
+            'time': slot.start_time.strftime('%H:%M')
+        })
         
         messages.success(request, 'Appointment booked successfully!')
         return redirect('dashboard')
