@@ -1,0 +1,23 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="card">
+    <h1>Login</h1>
+    <form method="post">
+        {% csrf_token %}
+        <label>Username:</label>
+        <input type="text" name="username" required>
+        
+        <label>Password:</label>
+        <input type="password" name="password" required>
+        
+        <button type="submit">Login</button>
+    </form>
+    
+    <p style="margin-top: 1rem;">
+        Don't have an account? 
+        <a href="{% url 'doctor_signup' %}">Sign up as Doctor</a> | 
+        <a href="{% url 'patient_signup' %}">Sign up as Patient</a>
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="card">
+    <h1>Welcome to Hospital Management System</h1>
+    <p>Manage appointments efficiently with our digital platform.</p>
+    
+    {% if not user.is_authenticated %}
+        <div style="margin-top: 2rem;">
+            <h2>Get Started</h2>
+            <p>Sign up to access the system:</p>
+            <a href="{% url 'doctor_signup' %}"><button>Sign Up as Doctor</button></a>
+            <a href="{% url 'patient_signup' %}"><button class="btn-secondary">Sign Up as Patient</button></a>
+            
+            <p style="margin-top: 2rem;">Already have an account?</p>
+            <a href="{% url 'login' %}"><button class="btn-secondary">Login</button></a>
+        </div>
+    {% else %}
+        <div style="margin-top: 2rem;">
+            <p>You are logged in as <strong>{{ user.get_full_name }}</strong></p>
+            <a href="{% url 'dashboard' %}"><button>Go to Dashboard</button></a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
