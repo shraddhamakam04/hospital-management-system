@@ -29,6 +29,7 @@ def doctor_signup(request):
         form = DoctorSignUpForm()
     return render(request, 'core/signup.html', {'form': form, 'role': 'Doctor'})
 
+
 def patient_signup(request):
     if request.method == 'POST':
         form = PatientSignUpForm(request.POST)
@@ -131,12 +132,17 @@ def book_appointment(request, slot_id):
         return redirect('dashboard')
     
     if request.method == 'POST':
-        slot = get_object_or_404(
-             AvailabilitySlot.objects.select_for_update(),
-            id=slot_id,
-            is_booked=False
-        )
+        try:
+            # Use select_for_update to prevent race conditions
+            slot = AvailabilitySlot.objects.select_for_update().get(
+                id=slot_id,
+                is_booked=False
+            )
+        except AvailabilitySlot.DoesNotExist:
+            messages.error(request, 'This slot is no longer available or does not exist')
+            return redirect('dashboard')
         
+        # Check if slot is in the past
         if slot.date < timezone.now().date():
             messages.error(request, 'Cannot book past slots')
             return redirect('dashboard')
@@ -146,25 +152,33 @@ def book_appointment(request, slot_id):
             patient=request.user,
             availability_slot=slot
         )
+        
+        # Mark slot as booked
         slot.is_booked = True
         slot.save()
         
         # Send confirmation emails
-        send_email('BOOKING_CONFIRMATION', request.user.email, {
-            'patient_name': request.user.get_full_name(),
-            'doctor_name': slot.doctor.get_full_name(),
-            'date': slot.date.strftime('%Y-%m-%d'),
-            'time': slot.start_time.strftime('%H:%M')
-        })
+        try:
+            send_email('BOOKING_CONFIRMATION', request.user.email, {
+                'patient_name': request.user.get_full_name(),
+                'doctor_name': slot.doctor.get_full_name(),
+                'date': slot.date.strftime('%Y-%m-%d'),
+                'time': slot.start_time.strftime('%H:%M')
+            })
+            
+            send_email('BOOKING_CONFIRMATION', slot.doctor.email, {
+                'patient_name': request.user.get_full_name(),
+                'doctor_name': slot.doctor.get_full_name(),
+                'date': slot.date.strftime('%Y-%m-%d'),
+                'time': slot.start_time.strftime('%H:%M')
+            })
+        except Exception as e:
+            # Log email error but don't fail the booking
+            print(f"Email sending failed: {e}")
         
-        send_email('BOOKING_CONFIRMATION', slot.doctor.email, {
-            'patient_name': request.user.get_full_name(),
-            'doctor_name': slot.doctor.get_full_name(),
-            'date': slot.date.strftime('%Y-%m-%d'),
-            'time': slot.start_time.strftime('%H:%M')
-        })
-        
-        messages.success(request, 'Appointment booked successfully!')
+        messages.success(request, f'Appointment booked successfully with Dr. {slot.doctor.get_full_name()}!')
         return redirect('dashboard')
     
+    # If not POST, redirect to dashboard
+    messages.warning(request, 'Invalid request')
     return redirect('dashboard')
